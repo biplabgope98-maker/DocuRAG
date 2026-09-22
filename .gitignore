@@ -21,3 +21,4 @@ database/*.db
 uploads/
 extracted_images/
 chunks.pkl
+.env
