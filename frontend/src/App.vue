@@ -59,7 +59,7 @@ async function login() {
     const role = data.user?.role || 'user'
 
     if (authPortal.value === 'admin' && role !== 'admin') {
-      loginError.value = 'Invalid email or password.'
+      loginError.value = 'Admin account required. Please use an admin account.'
       return
     }
 
