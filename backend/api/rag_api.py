@@ -926,6 +926,17 @@ def ask_question(
 
     if cached_response is not None:
 
+        # --------------------------------------------------------
+        # CACHE HIT
+        # --------------------------------------------------------
+        # A cache hit should still be recorded in the queries
+        # table so the admin dashboard/history can accurately
+        # track cache usage.
+        #
+        # We create a new query record with cache_hit = 1 instead
+        # of reusing the original cached query_id.
+        # --------------------------------------------------------
+
         cached_response = dict(
             cached_response
         )
@@ -941,6 +952,126 @@ def ask_question(
             start_time,
             4
         )
+
+        cached_query_id = None
+
+        connection = get_db_connection()
+
+        try:
+
+            cursor = connection.execute(
+                """
+                INSERT INTO queries (
+                    user_id,
+                    conversation_id,
+                    question,
+                    answer,
+                    confidence,
+                    response_time,
+                    cache_hit
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    conversation_id,
+                    question,
+                    cached_response.get(
+                        "answer",
+                        ""
+                    ),
+                    cached_response.get(
+                        "confidence",
+                        0
+                    ),
+                    cached_response[
+                        "response_time"
+                    ],
+                    1
+                )
+            )
+
+            cached_query_id = cursor.lastrowid
+
+            # ----------------------------------------------------
+            # Preserve cached text source references.
+            # ----------------------------------------------------
+
+            for rank, source in enumerate(
+                cached_response.get(
+                    "sources",
+                    []
+                ),
+                start=1
+            ):
+
+                try:
+
+                    similarity = float(
+                        source.get(
+                            "similarity",
+                            0
+                        )
+                    )
+
+                except (
+                    TypeError,
+                    ValueError
+                ):
+
+                    similarity = 0.0
+
+                connection.execute(
+                    """
+                    INSERT INTO query_sources (
+                        query_id,
+                        document_id,
+                        chunk_id,
+                        similarity,
+                        source_page,
+                        retrieved_text,
+                        image_context,
+                        rank
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        cached_query_id,
+                        source.get(
+                            "document_id"
+                        ),
+                        source.get(
+                            "chunk_id"
+                        ),
+                        similarity,
+                        source.get(
+                            "page_number"
+                        ),
+                        "",
+                        None,
+                        rank
+                    )
+                )
+
+            connection.commit()
+
+        except Exception as error:
+
+            connection.rollback()
+
+            print(
+                "Cache-hit query logging error:"
+            )
+
+            print(error)
+
+        finally:
+
+            connection.close()
+
+        cached_response[
+            "query_id"
+        ] = cached_query_id
 
         return cached_response
 

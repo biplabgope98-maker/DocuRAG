@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 
 from fastapi import APIRouter, HTTPException, Header
 
@@ -24,6 +25,7 @@ sys.path.insert(0, PROJECT_ROOT)
 
 
 from database.database import get_db_connection
+from backend.services.vector_store import rebuild_index
 
 # Reuse existing JWT authentication
 from backend.api.auth_api import get_user_from_token
@@ -542,6 +544,108 @@ def get_documents(
 
 
 # ============================================================
+# DELETE DOCUMENT
+# ============================================================
+
+@admin_router.delete("/documents/{document_id}")
+def delete_admin_document(
+    document_id: int,
+    authorization: str = Header(default=None)
+):
+    """Permanently delete a document as an administrator."""
+
+    require_admin(authorization)
+
+    connection = get_db_connection()
+    file_path = None
+    document_name = None
+
+    try:
+        document = connection.execute(
+            """
+            SELECT id, original_filename, file_path
+            FROM documents
+            WHERE id = ?
+            """,
+            (document_id,)
+        ).fetchone()
+
+        if not document:
+            raise HTTPException(
+                status_code=404,
+                detail="Document not found."
+            )
+
+        file_path = document["file_path"]
+        document_name = document["original_filename"]
+
+        connection.execute(
+            "DELETE FROM query_sources WHERE document_id = ?",
+            (document_id,)
+        )
+        connection.execute(
+            "DELETE FROM image_analysis WHERE document_id = ?",
+            (document_id,)
+        )
+        connection.execute(
+            "DELETE FROM document_chunks WHERE document_id = ?",
+            (document_id,)
+        )
+        connection.execute(
+            "DELETE FROM documents WHERE id = ?",
+            (document_id,)
+        )
+
+        connection.commit()
+
+    except HTTPException:
+        connection.rollback()
+        raise
+
+    except Exception as e:
+        connection.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not delete document: {str(e)}"
+        )
+
+    finally:
+        connection.close()
+
+    try:
+        if file_path and os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        print(
+            f"Warning: Could not delete physical file for document {document_id}: {e}"
+        )
+
+    try:
+        extracted_images_dir = os.path.join(
+            PROJECT_ROOT,
+            "uploads",
+            f"extracted_images_{document_id}"
+        )
+        if os.path.exists(extracted_images_dir):
+            shutil.rmtree(extracted_images_dir, ignore_errors=True)
+    except Exception as e:
+        print(
+            f"Warning: Could not delete extracted images for document {document_id}: {e}"
+        )
+
+    try:
+        rebuild_index()
+    except Exception as e:
+        print("Warning: Could not rebuild vector index:", e)
+
+    return {
+        "status": "success",
+        "message": f'Document "{document_name}" deleted successfully.',
+        "document_id": document_id
+    }
+
+
+# ============================================================
 # PROCESSING FAILURES
 # ============================================================
 
@@ -644,6 +748,70 @@ def get_queries(
 
     finally:
 
+        connection.close()
+
+
+# ============================================================
+# DELETE QUERY
+# ============================================================
+
+@admin_router.delete("/queries/{query_id}")
+def delete_admin_query(
+    query_id: int,
+    authorization: str = Header(default=None)
+):
+    """Permanently delete a query and its source references as an administrator."""
+
+    require_admin(authorization)
+
+    connection = get_db_connection()
+
+    try:
+        query = connection.execute(
+            """
+            SELECT id, question
+            FROM queries
+            WHERE id = ?
+            """,
+            (query_id,)
+        ).fetchone()
+
+        if not query:
+            raise HTTPException(
+                status_code=404,
+                detail="Query not found."
+            )
+
+        connection.execute(
+            "DELETE FROM query_sources WHERE query_id = ?",
+            (query_id,)
+        )
+
+        connection.execute(
+            "DELETE FROM queries WHERE id = ?",
+            (query_id,)
+        )
+
+        connection.commit()
+
+        return {
+            "status": "success",
+            "message": "Query deleted successfully.",
+            "query_id": query_id
+        }
+
+    except HTTPException:
+        connection.rollback()
+        raise
+
+    except Exception as e:
+        connection.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not delete query: {str(e)}"
+        )
+
+    finally:
         connection.close()
 
 

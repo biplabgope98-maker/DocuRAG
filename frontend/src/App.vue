@@ -407,6 +407,68 @@ async function deleteAdminUser(user) {
   }
 }
 
+async function deleteAdminQuery(query) {
+  const preview = String(query.question || 'this query').trim()
+  const shortPreview = preview.length > 120
+    ? `${preview.slice(0, 120)}…`
+    : preview
+
+  const confirmed = window.confirm(
+    `Delete this query permanently?\n\n` +
+    `"${shortPreview}"\n\n` +
+    `This will remove the query and its source references.\n` +
+    `This action cannot be undone.`
+  )
+
+  if (!confirmed) return
+
+  adminActionLoading.value = `delete-query-${query.id}`
+  adminError.value = ''
+
+  try {
+    await adminFetch(`/api/admin/queries/${query.id}`, {
+      method: 'DELETE'
+    })
+
+    await loadAdminData()
+  } catch (error) {
+    console.error('Admin query delete error:', error)
+    adminError.value = error.message || 'Failed to delete query.'
+  } finally {
+    adminActionLoading.value = null
+  }
+}
+
+async function deleteAdminDocument(document) {
+  const documentName = document.original_filename || document.filename || 'this document'
+
+  const confirmed = window.confirm(
+    `Delete "${documentName}" permanently?\n\n` +
+    `This will remove the document, its chunks, image analysis, source references, ` +
+    `uploaded file and extracted images.\n\n` +
+    `The vector index will also be rebuilt.\n\n` +
+    `This action cannot be undone.`
+  )
+
+  if (!confirmed) return
+
+  adminActionLoading.value = `delete-document-${document.id}`
+  adminError.value = ''
+
+  try {
+    await adminFetch(`/api/admin/documents/${document.id}`, {
+      method: 'DELETE'
+    })
+
+    await loadAdminData()
+  } catch (error) {
+    console.error('Admin document delete error:', error)
+    adminError.value = error.message || 'Failed to delete document.'
+  } finally {
+    adminActionLoading.value = null
+  }
+}
+
 function enterAdminDashboard() {
   appView.value = 'admin'
   loadAdminData()
@@ -1681,11 +1743,12 @@ onMounted(async () => {
                 <th>Status</th>
                 <th>Pages</th>
                 <th>Uploaded</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="!filteredAdminDocuments.length">
-                <td colspan="6" class="admin-empty">No documents found.</td>
+                <td colspan="7" class="admin-empty">No documents found.</td>
               </tr>
               <tr v-for="document in filteredAdminDocuments" :key="document.id">
                 <td :title="document.original_filename">{{ document.original_filename || document.filename }}</td>
@@ -1694,6 +1757,18 @@ onMounted(async () => {
                 <td><span class="admin-status">{{ document.processing_status }}</span></td>
                 <td>{{ document.page_count ?? '—' }}</td>
                 <td>{{ formatAdminDate(document.upload_date) }}</td>
+                <td>
+                  <div class="admin-actions">
+                    <button
+                      type="button"
+                      class="admin-action-btn admin-action-btn--danger"
+                      :disabled="adminActionLoading === `delete-document-${document.id}`"
+                      @click="deleteAdminDocument(document)"
+                    >
+                      {{ adminActionLoading === `delete-document-${document.id}` ? 'Deleting…' : 'Delete' }}
+                    </button>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -1739,9 +1814,23 @@ onMounted(async () => {
           <div v-if="!filteredAdminQueries.length" class="admin-empty-box">No matching queries found.</div>
           <div v-else class="admin-query-list">
             <article v-for="query in filteredAdminQueries.slice(0, 20)" :key="query.id" class="admin-query-item">
-              <strong>{{ query.question }}</strong>
-              <span>{{ query.username || 'Unknown user' }} · {{ query.confidence != null ? (Number(query.confidence) * 100).toFixed(1) + '% confidence' : 'No confidence' }}</span>
-              <small>{{ formatAdminDate(query.created_at) }}</small>
+              <div class="admin-query-content">
+                <strong>{{ query.question }}</strong>
+                <span>
+                  {{ query.username || 'Unknown user' }} ·
+                  {{ query.confidence != null ? (Number(query.confidence) * 100).toFixed(1) + '% confidence' : 'No confidence' }}
+                </span>
+                <small>{{ formatAdminDate(query.created_at) }}</small>
+              </div>
+
+              <button
+                type="button"
+                class="admin-action-btn admin-action-btn--danger admin-query-delete"
+                :disabled="adminActionLoading === `delete-query-${query.id}`"
+                @click="deleteAdminQuery(query)"
+              >
+                {{ adminActionLoading === `delete-query-${query.id}` ? 'Deleting…' : 'Delete' }}
+              </button>
             </article>
           </div>
         </div>
@@ -3224,6 +3313,17 @@ input:focus-visible,
   .composer {
     border-radius: 13px;
   }
+}
+
+
+.admin-query-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-query-delete {
+  flex-shrink: 0;
+  align-self: center;
 }
 
 </style>

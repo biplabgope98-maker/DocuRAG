@@ -20,3 +20,4 @@ cookies.txt
 database/*.db
 uploads/
 extracted_images/
+chunks.pkl

@@ -1,0 +1,17 @@
+# DocuRAG backend dependencies
+# Install with: pip install -r requirements.txt
+
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+PyJWT
+bcrypt
+
+pymupdf
+numpy
+faiss-cpu
+sentence-transformers
+
+google-genai
+Pillow
