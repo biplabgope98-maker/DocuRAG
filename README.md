@@ -1,106 +1,77 @@
-DocuRAG - Document Question Answering System
+# DocuRAG - Document Question Answering System
 
-Cognizant NPN Hackathon - Team CODENOVA
+### Cognizant NPN Hackathon - Team CODENOVA
 
-DocuRAG is an AI-powered document question-answering application using Retrieval-Augmented Generation (RAG). It allows users to upload PDF documents and images, search their content, and ask questions using AI.
+DocuRAG is an AI-powered document question-answering application using **Retrieval-Augmented Generation (RAG)**. It allows users to upload PDF documents and images, search their content, and ask questions using AI.
 
-Features
+---
 
-User
+## Features
 
-User Registration and Login
+### User
 
-JWT Authentication
+- User Registration and Login
+- JWT Authentication
+- PDF Upload
+- Image Upload
+- OCR for Scanned Documents
+- Semantic Document Search
+- AI-powered Question Answering
+- Source and Page References
+- Query History
+- Query Caching
 
-PDF Upload
+### Admin
 
-Image Upload
+- Separate Admin Login
+- Admin Dashboard
+- View and Manage Users
+- Activate / Deactivate Users
+- Delete Users
+- View and Manage Documents
+- Delete Documents
+- View Processing Failures
+- View and Manage Queries
+- System Statistics
 
-OCR for Scanned Documents
+---
 
-Semantic Document Search
+## Technologies Used
 
-AI-powered Question Answering
+### Backend
 
-Source and Page References
+- Python
+- FastAPI
+- Uvicorn
+- SQLite
+- PyMuPDF
+- Pillow
 
-Query History
+### AI and RAG
 
-Query Caching
+- Google Gemini
+- Google GenAI SDK
+- Sentence Transformers
+- FAISS
+- Hybrid Search
+- Vector Embeddings
+- OCR
 
-Admin
+### Frontend
 
-Separate Admin Login
+- Vue.js
+- Vite
+- JavaScript
+- HTML
+- CSS
 
-Admin Dashboard
+### Authentication
 
-View and Manage Users
+- JWT
+- bcrypt
+- Role-based Authorization
 
-Activate / Deactivate Users
-
-Delete Users
-
-View and Manage Documents
-
-Delete Documents
-
-View Processing Failures
-
-View and Manage Queries
-
-System Statistics
-
-Technologies Used
-
-Backend
-
-Python
-
-FastAPI
-
-Uvicorn
-
-SQLite
-
-PyMuPDF
-
-Pillow
-
-AI and RAG
-
-Google Gemini
-
-Google GenAI SDK
-
-Sentence Transformers
-
-FAISS
-
-Hybrid Search
-
-Vector Embeddings
-
-OCR
-
-Frontend
-
-Vue.js
-
-Vite
-
-JavaScript
-
-HTML
-
-CSS
-
-Authentication
-
-JWT
-
-bcrypt
-
-Role-based Authorization
+---
 
 ## Project Structure
 
@@ -144,181 +115,156 @@ DocuRAG-main/
 └── start_backend.bat
 
 
-User Roles
+## User Roles
 
-Role
+| Role | Description |
+|------|-------------|
+| **Admin** | Manage users, documents, queries, and system information |
+| **User** | Upload documents and ask questions using the RAG system |
 
-Description
+## Major Functionalities
 
-Admin
+- User Authentication
+- Admin Authentication
+- Role-based Authorization
+- PDF Processing
+- Image Processing
+- OCR for Scanned Documents
+- Text Chunking
+- Text Embeddings
+- FAISS Vector Search
+- Hybrid Search
+- Gemini-based Answer Generation
+- Source and Page Retrieval
+- Query History
+- Query Caching
+- Document Management
+- User Management
+- Query Management
+- Processing Status Tracking
 
-Manage users, documents, queries, and system information
+---
 
-User
+## RAG Workflow
 
-Upload documents and ask questions using the RAG system
+The system follows a Retrieval-Augmented Generation workflow:
 
-Major Functionalities
+1. User uploads a PDF or image.
+2. The document is processed and text is extracted.
+3. Scanned documents are processed using OCR.
+4. Extracted content is divided into chunks.
+5. Chunks are converted into vector embeddings.
+6. Embeddings are stored in the FAISS vector index.
+7. The user submits a question.
+8. Relevant document chunks are retrieved.
+9. Retrieved context is provided to Gemini.
+10. Gemini generates the answer.
+11. Source and page information is returned to the user.
 
-User Authentication
+---
 
-Admin Authentication
+## Installation
 
-Role-based Authorization
+### Clone Repository
 
-PDF Processing
-
-Image Processing
-
-OCR for Scanned Documents
-
-Text Chunking
-
-Text Embeddings
-
-FAISS Vector Search
-
-Hybrid Search
-
-Gemini-based Answer Generation
-
-Source and Page Retrieval
-
-Query History
-
-Query Caching
-
-Document Management
-
-User Management
-
-Query Management
-
-Processing Status Tracking
-
-RAG Workflow
-
-User uploads a PDF or image.
-
-The document is processed and text is extracted.
-
-Scanned documents are processed using OCR.
-
-Extracted content is divided into chunks.
-
-Chunks are converted into vector embeddings.
-
-Embeddings are stored in the FAISS vector index.
-
-The user submits a question.
-
-Relevant document chunks are retrieved.
-
-Retrieved context is provided to Gemini.
-
-Gemini generates the answer.
-
-Source and page information is returned to the user.
-
-Installation
-
-Clone Repository
-
+```bash
 git clone <repository-url>
 cd DocuRAG-main
 
-Backend Setup
+### Backend Setup
 
+Install the required Python packages:
+
+```bash
 pip install -r requirements.txt
 
 Configure the required environment variables, including the Gemini API key.
 
-Do not commit API keys or .env files to GitHub.
+Do not commit API keys or .env files to GitHub. 
 
-Frontend Setup
+### Frontend Setup
 
+```bash
 cd frontend
 npm install
 
-Run the Project
+## Run the Project
 
-Start Backend
+### Start Backend
 
-From the project root:
+From the project root, run:
 
-uvicorn backend.fastapi_app:app --host 127.0.0.1 --port 8000 --reload
+    uvicorn backend.fastapi_app:app --host 127.0.0.1 --port 8000 --reload
 
-The backend runs at:
+The backend will run at:
 
-http://127.0.0.1:8000
+    http://127.0.0.1:8000
 
-API documentation:
+### API Documentation
 
-http://127.0.0.1:8000/docs
+FastAPI interactive API documentation is available at:
+
+    http://127.0.0.1:8000/docs
+
+### Start Backend Using Batch File
 
 The backend can also be started using:
 
-start_backend.bat
+    start_backend.bat
 
-Start Frontend
+### Start Frontend
 
-Open another terminal:
+Open another terminal and run:
 
-cd frontend
-npm run dev
+    cd frontend
+    npm run dev
 
 Open the URL provided by Vite in the browser.
 
-Usage
+---
 
-User
+## Usage
 
-Create an account.
+### User
 
-Log in to the application.
+1. Create an account.
+2. Log in to the application.
+3. Upload a PDF or image.
+4. Wait for the document to be processed.
+5. Ask questions about the uploaded document.
+6. View the generated answer.
+7. Check the source and page references.
+8. View previous queries when required.
 
-Upload a PDF or image.
+### Admin
 
-Wait for document processing.
+1. Open the admin login page.
+2. Log in using an admin account.
+3. Open the admin dashboard.
+4. View system statistics.
+5. Manage users.
+6. Manage documents.
+7. View processing failures.
+8. View and manage queries.
 
-Ask questions about the uploaded document.
+---
 
-View the generated answer.
+## API Documentation
 
-Check the source and page references.
+The project uses **FastAPI** for backend API services.
 
-View previous queries when required.
+Interactive API documentation is available at:
 
-Admin
-
-Open the admin login page.
-
-Log in using an admin account.
-
-Open the admin dashboard.
-
-View system statistics.
-
-Manage users.
-
-Manage documents.
-
-View processing failures.
-
-View and manage queries.
-
-API Documentation
-
-FastAPI provides interactive API documentation at:
-
-http://127.0.0.1:8000/docs
+    http://127.0.0.1:8000/docs
 
 The documentation can be used to view and test the available API endpoints.
 
-Team
+---
 
-Team: CODENOVA
+## Team
 
-Event: Cognizant NPN Hackathon
+**Team:** CODENOVA
 
-Project: DocuRAG
+**Event:** Cognizant NPN Hackathon
+
+**Project:** DocuRAG
