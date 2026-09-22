@@ -102,8 +102,9 @@ bcrypt
 
 Role-based Authorization
 
-Project Structure
+## Project Structure
 
+```text
 DocuRAG-main/
 ├── backend/
 │   ├── api/
@@ -141,6 +142,7 @@ DocuRAG-main/
 ├── requirements.txt
 ├── README.md
 └── start_backend.bat
+
 
 User Roles
 
