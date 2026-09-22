@@ -4,6 +4,8 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from database.database import init_db
+
 from backend.api.auth_api import auth_router
 from backend.api.documents_api import documents_router
 from backend.api.rag_api import rag_router
@@ -35,6 +37,13 @@ app = FastAPI(
     description="AI Powered Document & Image Search and Analysis API",
     version="1.0.0"
 )
+
+
+# ============================================================
+# DATABASE INITIALIZATION
+# ============================================================
+
+init_db()
 
 
 # ============================================================
