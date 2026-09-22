@@ -1,6 +1,11 @@
 import sqlite3
 import os
 
+from werkzeug.security import generate_password_hash
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 DATABASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_PATH = os.path.join(DATABASE_DIR, "docurag.db")
@@ -12,6 +17,120 @@ def get_db_connection():
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
+def create_default_admin(connection):
+    """
+    Create the default admin account if no admin account exists.
+
+    Admin credentials are read from environment variables:
+        ADMIN_USERNAME
+        ADMIN_EMAIL
+        ADMIN_PASSWORD
+
+    This function is safe to run every time the application starts.
+    It will not create duplicate admin accounts.
+    """
+
+    admin_exists = connection.execute(
+        """
+        SELECT id
+        FROM users
+        WHERE role = 'admin'
+        LIMIT 1
+        """
+    ).fetchone()
+
+    # Admin already exists
+    if admin_exists:
+        return
+
+    admin_username = os.getenv("ADMIN_USERNAME")
+    admin_email = os.getenv("ADMIN_EMAIL")
+    admin_password = os.getenv("ADMIN_PASSWORD")
+
+    if not admin_username or not admin_email or not admin_password:
+        raise RuntimeError(
+            "Default admin cannot be created. "
+            "Please configure ADMIN_USERNAME, ADMIN_EMAIL, "
+            "and ADMIN_PASSWORD in the .env file."
+        )
+
+    admin_username = admin_username.strip()
+    admin_email = admin_email.strip().lower()
+
+    if not admin_username or not admin_email:
+        raise RuntimeError(
+            "ADMIN_USERNAME and ADMIN_EMAIL cannot be empty."
+        )
+
+    # Same password policy used by the previous manual admin creation
+    if len(admin_password) < 8:
+        raise RuntimeError(
+            "ADMIN_PASSWORD must contain at least 8 characters."
+        )
+
+    if not any(c.isupper() for c in admin_password):
+        raise RuntimeError(
+            "ADMIN_PASSWORD must contain an uppercase letter."
+        )
+
+    if not any(c.islower() for c in admin_password):
+        raise RuntimeError(
+            "ADMIN_PASSWORD must contain a lowercase letter."
+        )
+
+    if not any(c.isdigit() for c in admin_password):
+        raise RuntimeError(
+            "ADMIN_PASSWORD must contain a number."
+        )
+
+    if not any(not c.isalnum() for c in admin_password):
+        raise RuntimeError(
+            "ADMIN_PASSWORD must contain a special character."
+        )
+
+    # Prevent collision with an existing normal user
+    existing_user = connection.execute(
+        """
+        SELECT id, username, email
+        FROM users
+        WHERE username = ? OR email = ?
+        LIMIT 1
+        """,
+        (admin_username, admin_email)
+    ).fetchone()
+
+    if existing_user:
+        raise RuntimeError(
+            "Cannot create default admin because the configured "
+            "ADMIN_USERNAME or ADMIN_EMAIL is already used by another account."
+        )
+
+    password_hash = generate_password_hash(admin_password)
+
+    connection.execute(
+        """
+        INSERT INTO users (
+            username,
+            email,
+            password_hash,
+            role,
+            is_active
+        )
+        VALUES (?, ?, ?, 'admin', 1)
+        """,
+        (
+            admin_username,
+            admin_email,
+            password_hash
+        )
+    )
+
+    print("========================================")
+    print("Default admin account created successfully")
+    print(f"Admin username: {admin_username}")
+    print(f"Admin email   : {admin_email}")
+    print("Admin role    : admin")
+    print("========================================")
 
 def init_db():
 
@@ -195,12 +314,14 @@ def init_db():
         ON query_sources(document_id)
     """)
 
+    # Create the default admin account if one does not exist
+    create_default_admin(connection)
+
     connection.commit()
     connection.close()
 
     print("Database initialized successfully.")
     print(f"Database location: {DATABASE_PATH}")
-
 
 if __name__ == "__main__":
     init_db()
