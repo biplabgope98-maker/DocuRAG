@@ -263,8 +263,8 @@ The documentation can be used to view and test the available API endpoints.
 
 ## Team
 
-**Team:** CODENOVA
+**Biplab Gope**
 
-**Event:** Cognizant NPN Hackathon
+
 
 **Project:** DocuRAG
