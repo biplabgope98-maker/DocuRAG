@@ -3,6 +3,7 @@ import sys
 import hashlib
 import uuid
 import shutil
+import pymupdf
 
 from fastapi import (
     APIRouter,
@@ -21,6 +22,7 @@ PROJECT_ROOT = os.path.dirname(BACKEND_ROOT)
 
 sys.path.insert(0, BACKEND_ROOT)
 sys.path.insert(0, PROJECT_ROOT)
+
 
 # ============================================================
 # PROJECT IMPORTS
@@ -89,6 +91,69 @@ def get_authenticated_user(authorization: str):
         )
 
     return user
+
+
+# ============================================================
+# PDF CONTENT VALIDATION
+# ============================================================
+def validate_pdf_has_meaningful_content(file_bytes):
+    """
+    Validate that a PDF contains meaningful content.
+
+    Rejects:
+    - completely blank PDFs
+    - PDFs containing only special symbols
+    - PDFs containing only whitespace
+
+    Allows:
+    - normal text PDFs
+    - scanned/image-based PDFs
+    """
+
+    pdf = None
+
+    try:
+        pdf = pymupdf.open(
+            stream=file_bytes,
+            filetype="pdf"
+        )
+
+        if len(pdf) == 0:
+            return False, "The PDF contains no pages."
+
+        for page in pdf:
+
+            # ------------------------------------------------
+            # Check native PDF text
+            # ------------------------------------------------
+            text = page.get_text("text") or ""
+            text = text.strip()
+
+            if text and any(char.isalnum() for char in text):
+                return True, None
+
+            # ------------------------------------------------
+            # Check scanned/image-based content
+            # ------------------------------------------------
+            images = page.get_images(full=True)
+
+            if images:
+                return True, None
+
+        # ----------------------------------------------------
+        # No meaningful text or image content found
+        # ----------------------------------------------------
+        return False, (
+            "Blank or invalid PDF cannot be uploaded. "
+            "Please upload a PDF containing readable content."
+        )
+
+    except Exception as e:
+        return False, f"Could not validate PDF: {str(e)}"
+
+    finally:
+        if pdf:
+            pdf.close()
 
 
 # ============================================================
@@ -222,6 +287,21 @@ async def upload_document(
         )
 
     # --------------------------------------------------------
+    # Validate PDF content BEFORE saving
+    # --------------------------------------------------------
+    if extension == ".pdf":
+
+        is_valid, validation_message = (
+            validate_pdf_has_meaningful_content(file_bytes)
+        )
+
+        if not is_valid:
+            raise HTTPException(
+                status_code=400,
+                detail=validation_message
+            )
+
+    # --------------------------------------------------------
     # Calculate SHA256 hash
     # --------------------------------------------------------
     content_hash = hashlib.sha256(
@@ -269,25 +349,42 @@ async def upload_document(
         # Generate safe stored filename
         # ----------------------------------------------------
         stored_filename = (
-             f"{uuid.uuid4().hex}_"
-             f"{original_filename}"
-        )  
-        # Separate storage for PDFs and images 
-        if extension == ".pdf":
-            storage_dir = os.path.join(UPLOAD_DIR, "pdfs")
-        else:
-            storage_dir = os.path.join(UPLOAD_DIR, "images")
+            f"{uuid.uuid4().hex}_"
+            f"{original_filename}"
+        )
 
-        os.makedirs(storage_dir, exist_ok=True)
+        # ----------------------------------------------------
+        # Separate storage for PDFs and images
+        # ----------------------------------------------------
+        if extension == ".pdf":
+            storage_dir = os.path.join(
+                UPLOAD_DIR,
+                "pdfs"
+            )
+        else:
+            storage_dir = os.path.join(
+                UPLOAD_DIR,
+                "images"
+            )
+
+        os.makedirs(
+            storage_dir,
+            exist_ok=True
+        )
 
         file_path = os.path.join(
-        storage_dir,
-        stored_filename
+            storage_dir,
+            stored_filename
         )
+
         # ----------------------------------------------------
         # Save physical file
         # ----------------------------------------------------
-        with open(file_path, "wb") as output_file:
+        with open(
+            file_path,
+            "wb"
+        ) as output_file:
+
             output_file.write(file_bytes)
 
         # ----------------------------------------------------
@@ -337,8 +434,12 @@ async def upload_document(
 
         # Remove physical file if DB insertion failed
         try:
-            if "file_path" in locals() and os.path.exists(file_path):
+            if (
+                "file_path" in locals()
+                and os.path.exists(file_path)
+            ):
                 os.remove(file_path)
+
         except Exception:
             pass
 
@@ -407,8 +508,11 @@ async def upload_document(
         # Rebuild vector index
         # ----------------------------------------------------
         try:
+
             rebuild_index()
+
         except Exception as index_error:
+
             print(
                 "Warning: Vector index rebuild failed:",
                 index_error
@@ -440,12 +544,15 @@ async def upload_document(
         )
 
         try:
+
             update_document_status(
                 document_id=document_id,
                 status="failed",
                 error_message=error_message
             )
+
         except Exception as status_error:
+
             print(
                 "Could not update failed status:",
                 status_error
@@ -734,6 +841,7 @@ async def delete_document(
         connection.commit()
 
     except HTTPException:
+
         connection.rollback()
         raise
 
@@ -755,6 +863,7 @@ async def delete_document(
     try:
 
         if file_path and os.path.exists(file_path):
+
             os.remove(file_path)
 
     except Exception as e:

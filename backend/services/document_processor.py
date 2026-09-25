@@ -15,6 +15,7 @@ sys.path.insert(0, PROJECT_ROOT)
 # IMPORTS
 # ============================================================
 import pymupdf
+import numpy as np
 
 from database.database import get_db_connection
 from services.vector_store import rebuild_index
@@ -35,6 +36,102 @@ os.makedirs(EXTRACTED_IMAGES_FOLDER, exist_ok=True)
 
 
 # ============================================================
+# EXTRACT VISIBLE PDF TEXT
+# ============================================================
+
+def extract_visible_native_text(page, scale=OCR_SCALE):
+    """
+    Extract native PDF text while ignoring words that are
+    visually covered by a dark/black marker or overlay.
+    """
+
+    words = page.get_text("words", sort=True)
+
+    if not words:
+        return ""
+
+    pixmap = page.get_pixmap(
+        matrix=pymupdf.Matrix(scale, scale),
+        alpha=False
+    )
+
+    image = np.frombuffer(
+        pixmap.samples,
+        dtype=np.uint8
+    ).reshape(
+        pixmap.height,
+        pixmap.width,
+        pixmap.n
+    )
+
+    gray = image[:, :, :3].mean(axis=2)
+
+    visible_words = []
+    hidden_words = []
+
+    for word in words:
+        x0, y0, x1, y1 = word[:4]
+
+        left = max(0, int(x0 * scale))
+        top = max(0, int(y0 * scale))
+        right = min(pixmap.width, int(np.ceil(x1 * scale)))
+        bottom = min(pixmap.height, int(np.ceil(y1 * scale)))
+
+        if right <= left or bottom <= top:
+            visible_words.append(word)
+            continue
+
+        word_image = gray[top:bottom, left:right]
+
+        if word_image.size == 0:
+            visible_words.append(word)
+            continue
+
+        dark_pixels = word_image < 80
+        dark_ratio = float(dark_pixels.mean())
+        dark_column_ratio = float((dark_pixels.mean(axis=0) > 0.30).mean())
+
+        visually_covered = (
+            dark_ratio >= 0.45
+            and dark_column_ratio >= 0.55
+        )
+
+        if visually_covered:
+            hidden_words.append(word[4])
+        else:
+            visible_words.append(word)
+
+    lines = {}
+
+    for word in visible_words:
+        block_number = word[5]
+        line_number = word[6]
+        key = (block_number, line_number)
+
+        if key not in lines:
+            lines[key] = []
+
+        lines[key].append(word)
+
+    extracted_lines = []
+
+    for key in sorted(lines):
+        line_words = sorted(lines[key], key=lambda item: item[7])
+        line_text = " ".join(word[4] for word in line_words)
+
+        if line_text.strip():
+            extracted_lines.append(line_text)
+
+    if hidden_words:
+        print(
+            "  Ignored visually covered words: "
+            f"{hidden_words}"
+        )
+
+    return "\n".join(extracted_lines)
+
+
+# ============================================================
 # CREATE TEXT CHUNKS
 # ============================================================
 def create_chunks(
@@ -52,11 +149,15 @@ def create_chunks(
         )
 
     chunks = []
+
     for start in range(0, len(text), step):
         chunk = text[start:start + chunk_size]
+
         if not chunk:
             break
-        if chunk.strip():
+
+        # Reject whitespace-only and special-symbol-only chunks
+        if chunk.strip() and any(char.isalnum() for char in chunk):
             chunks.append(chunk)
 
     return chunks
@@ -281,7 +382,7 @@ def process_pdf(document_id):
             # ------------------------------------------------
             # First try native PDF text extraction.
             # ------------------------------------------------
-            text = page.get_text("text")
+            text = extract_visible_native_text(page)
             text = text.strip() if text else ""
 
             if text:
